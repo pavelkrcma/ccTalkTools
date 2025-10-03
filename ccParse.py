@@ -1,0 +1,181 @@
+import sys
+import urwid
+import binascii
+from ccTalk import *
+from optparse import OptionParser
+
+#ccParse, a ccTalk data viewer
+#Copyright (C) 2012 Nicolas Oberli
+#
+#This program is free software; you can redistribute it and/or
+#modify it under the terms of the GNU General Public License
+#as published by the Free Software Foundation; either version 2
+#of the License, or (at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program; if not, write to the Free Software
+#Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+keys = []
+data = ""
+
+class Label (urwid.Text):
+
+    def selectable(self):
+        return True
+
+    def keypress(self,  size,  key):
+        return key
+
+def reloadContent():
+    content = [urwid.AttrMap(w, None, 'focus') for w in keys]
+    return content
+
+def main ():
+
+    content = urwid.SimpleListWalker(reloadContent())
+    messagesList = urwid.ListBox(content)
+
+    palette = [
+        ('body','dark cyan', '', 'standout'),
+        ('focus','dark red', '', 'standout'),
+        ('head','light red', 'black'),
+        ]
+
+    menutxt = urwid.Text("Menu bar")
+    menufill = urwid.Filler(menutxt)
+
+    infoTxt = urwid.Text("Info panel")
+    infoFill = urwid.Filler(infoTxt)
+
+    def keystroke(kinput):
+        if kinput in ('q', 'Q', 'esc'):
+            raise urwid.ExitMainLoop()
+
+        if kinput in ('enter'):
+            pos = messagesList.focus_position
+            if pos is None or pos == 0:
+                return
+
+            if len(messages[pos].payload.data) > 0:
+                if messages[pos].payload.header == 0:
+                    text = "\n= In response to : " +\
+                            messages[pos-1].payload.headerType + "\n" +\
+                            str(messages[pos-1]) + "\n"
+                    text = text + "\n= Payload decoding \n" +\
+                            messages[pos].payload.parsePayload(
+                                    messages[pos-1].payload.header) + "\n"
+                else:
+                    text = "\n= Header " + str(messages[pos].payload.header) +\
+                            " (" + messages[pos].payload.headerType + ")\n"
+                    text = text + "= Payload decoding \n" +\
+                            messages[pos].payload.parsePayload(
+                                    messages[pos].payload.header) + "\n"
+            else:
+                if messages[pos].payload.header == 0:
+                    text = "\n= In response to : " +\
+                            messages[pos-1].payload.headerType + "\n" +\
+                            str(messages[pos-1]) + "\n"
+                else:
+                    text = "\n= Header " + str(messages[pos].payload.header) +\
+                            " (" + messages[pos].payload.headerType + ")\n"
+            text = text + "\n= Raw dump of packet \n" +\
+                    binascii.hexlify(messages[pos].raw()).decode()
+            infoTxt.set_text(text)
+
+    liste = urwid.Pile(
+                       [(urwid.LineBox(messagesList)),
+                        ('fixed',17,(urwid.LineBox(infoFill))),
+                        ])
+
+    header = urwid.AttrMap(urwid.Text('ccParse 0.3 - ' + str(len(keys)) +' messages'), 'head')
+    view = urwid.Frame(liste,  header=header)
+    loop = urwid.MainLoop(view, palette, unhandled_input=keystroke)
+    loop.run()
+
+def load_binary_file(filename):
+    try:
+        with open(filename, "rb") as f:
+            return f.read()
+    except IOError as e:
+        print(f"Error reading binary file {filename}: {e}")
+        sys.exit(1)
+
+def load_from_log(filename):
+    try:
+        with open(filename, "r") as f:
+            lines = f.readlines()
+        
+        binary_data = b''
+
+        # Parse hex data packets
+        for line in lines:
+            line = line.strip()
+            
+            # Check if line starts with timestamp and CC header
+            if not (len(line) >= 12 and line[2] == ':' and line[5] == ':' and line[8:12] == ' CC:'):
+                continue
+            
+            # Extract the data part after "CC: "
+            data_part = line[12:].strip()
+            if data_part.startswith('x'): # Skip lines that start with xnn pattern
+                continue
+            
+            if ' -> ' in data_part:
+                input_packet, output_packet = data_part.split(' -> ')
+                
+                input_hex = input_packet.replace(' ', '')
+                if input_hex:
+                    try:
+                        binary_data += bytes.fromhex(input_hex)
+                    except ValueError as e:
+                        print(f"Error parsing hex data '{input_hex}': {e}")
+                        pass
+                
+                output_hex = output_packet.replace(' ', '')
+                if output_hex:
+                    try:
+                        binary_data += bytes.fromhex(output_hex)
+                    except ValueError:
+                        print(f"Error parsing hex data '{input_hex}': {e}")
+                        pass
+        
+        return binary_data
+        
+    except IOError as e:
+        print(f"Error reading log file {filename}: {e}")
+        sys.exit(1)
+
+if __name__ == '__main__':
+    parser = OptionParser(usage="Usage: %prog [options]")
+    parser.add_option("-b", "--binary", dest="binary_file", metavar="FILE",
+                        help="Load FILE in binary mode")
+    parser.add_option("-a", "--ascii", dest="log_file", metavar="FILE",
+                        help="Load FILE in text mode")
+
+    (options, args) = parser.parse_args()
+
+    if not options.binary_file and not options.log_file:
+        parser.print_help()
+        sys.exit(1)
+
+    if options.binary_file:
+        packet_data = load_binary_file(options.binary_file)
+    elif options.log_file:
+        packet_data = load_from_log(options.log_file)
+
+    print(f"Loaded {len(packet_data)} bytes of data.")
+
+    data, messages = parseMessages(packet_data)
+
+    keys = []
+    for message in messages:
+        print(message)
+        keys.append(Label(str(message)))
+    reloadContent()
+    main()

@@ -1,0 +1,10 @@
+[project]
+name = "cctalktools"
+version = "0.1.0"
+description = "ccTalkTools, a collection of tools to interact with a ccTalk bus"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pyserial>=3.5",
+    "urwid>=3.0.3",
+]
