@@ -219,7 +219,7 @@ class ccTalkPayload():
                 return self._extractCoinBuffer()
             elif header in [131, 145, 170, 171, 184, 192, 241, 242, 244, 245, 246]:
                 #Process functions that return ASCII
-                self.decodedHeader = str(self.data)
+                self.decodedHeader = self.data.decode('ascii', errors='ignore')
                 return self.decodedHeader
             elif header == 227:
                 return self._extractEnableState()
@@ -248,11 +248,7 @@ class ccTalkPayload():
     def __len__(self):
         return len(self.raw())
 
-    ##
-    #
     # Private methods used to parse and extract response data
-    #
-    ##
 
     def _extractEnableState(self):
         if self.data == bytes([1]):
@@ -262,7 +258,7 @@ class ccTalkPayload():
         return self.decodedHeader
 
     def _extractChannelInfo(self):
-        self.decodedHeader = "Channel "+str(self.data)
+        self.decodedHeader = "Channel "+ str(self.data[0])
         return self.decodedHeader
 
     def _extractCoinBuffer(self):
@@ -353,24 +349,19 @@ class ccTalkMessage():
         return repr(self.raw())
 
     def __str__(self) -> str:
-        """
-        Returns a user-friendly representation of the message
-        """
-        if self.sigmode == 0:
-            signature = 'checksum'
-        else:
-            signature = 'CRC'
-        if self.payload.data != "":
-            return "<cctalk src="+str(self.source)+" dst="+\
-                    str(self.destination)+" length="+str(self.length)+\
-                    " header="+str(self.payload.header)+\
-                    " data="+binascii.hexlify(self.payload.data).decode()+\
-                    " signature="+signature+">"
-        else:
-            return "<cctalk src="+str(self.source)+" dst="+\
-                    str(self.destination)+" length="+str(self.length)+\
-                    " header="+str(self.payload.header)+\
-                    " signature="+signature+">"
+        retstr = str(self.source) + " -> " + str(self.destination) + " :"
+
+        if self.payload.header > 0:
+            retstr = retstr +\
+            " header="+str(self.payload.header)+\
+            " ("+self.payload.headerType+")"
+
+        retstr = retstr + " sig=" + ('checksum' if self.sigmode == 0 else 'CRC')
+
+        if self.length > 0:
+            retstr = retstr + " data(" + str(self.length) + ")=" + binascii.hexlify(self.payload.data).decode()
+
+        return retstr
 
     def setPayload(self, header:int=0, data:bytes=b''):
         self.payload = ccTalkPayload(header, data)

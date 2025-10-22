@@ -8,7 +8,7 @@ UV is the preffered package manager
 
 == ccParse
 ccParse can read a data dump made by ccSniff or other dumper to actually parse the data in a more comprehensive way.
-Just launch ccParse with a dump file as a parameter.
+Just launch ccParse with a dump file as a parameter (see the help).
 
 ccParse uses the urwid library.
 

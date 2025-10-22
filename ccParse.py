@@ -36,8 +36,7 @@ def reloadContent():
     content = [urwid.AttrMap(w, None, 'focus') for w in keys]
     return content
 
-def main ():
-
+def main_ui():
     content = urwid.SimpleListWalker(reloadContent())
     messagesList = urwid.ListBox(content)
 
@@ -54,15 +53,18 @@ def main ():
     infoFill = urwid.Filler(infoTxt)
 
     def keystroke(kinput):
+        if type(kinput) == tuple:
+            return
+
         if kinput in ('q', 'Q', 'esc'):
             raise urwid.ExitMainLoop()
 
         if kinput in ('enter'):
             pos = messagesList.focus_position
-            if pos is None or pos == 0:
+            if pos is None:
                 return
 
-            if len(messages[pos].payload.data) > 0:
+            if messages[pos].length > 0:
                 if messages[pos].payload.header == 0:
                     text = "\n= In response to : " +\
                             messages[pos-1].payload.headerType + "\n" +\
@@ -84,8 +86,9 @@ def main ():
                 else:
                     text = "\n= Header " + str(messages[pos].payload.header) +\
                             " (" + messages[pos].payload.headerType + ")\n"
+
             text = text + "\n= Raw dump of packet \n" +\
-                    binascii.hexlify(messages[pos].raw()).decode()
+                    ' '.join(binascii.hexlify(messages[pos].raw()).decode()[i:i+2] for i in range(0, len(binascii.hexlify(messages[pos].raw()).decode()), 2))
             infoTxt.set_text(text)
 
     liste = urwid.Pile(
@@ -93,7 +96,7 @@ def main ():
                         ('fixed',17,(urwid.LineBox(infoFill))),
                         ])
 
-    header = urwid.AttrMap(urwid.Text('ccParse 0.3 - ' + str(len(keys)) +' messages'), 'head')
+    header = urwid.AttrMap(urwid.Text('ccParse 0.4 - ' + str(len(keys)) +' messages'), 'head')
     view = urwid.Frame(liste,  header=header)
     loop = urwid.MainLoop(view, palette, unhandled_input=keystroke)
     loop.run()
@@ -157,6 +160,8 @@ if __name__ == '__main__':
                         help="Load FILE in binary mode")
     parser.add_option("-a", "--ascii", dest="log_file", metavar="FILE",
                         help="Load FILE in text mode")
+    parser.add_option("-i", "--interactive", action="store_true", dest="interactive", default=False,
+                        help="Start in interactive mode")
 
     (options, args) = parser.parse_args()
 
@@ -169,13 +174,14 @@ if __name__ == '__main__':
     elif options.log_file:
         packet_data = load_from_log(options.log_file)
 
-    print(f"Loaded {len(packet_data)} bytes of data.")
+    print(f"Loaded {len(packet_data)} bytes of data.\n")
 
-    data, messages = parseMessages(packet_data)
+    _, messages = parseMessages(packet_data)
 
-    keys = []
-    for message in messages:
-        print(message)
-        keys.append(Label(str(message)))
-    reloadContent()
-    main()
+    if options.interactive:
+        keys = [Label(str(message)) for message in messages]
+        reloadContent()
+        main_ui()
+    else:
+        for message in messages:
+            print(message)
