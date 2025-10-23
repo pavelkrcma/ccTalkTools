@@ -1,5 +1,6 @@
 #ccTalk python library
 #Copyright (C) 2012 Nicolas Oberli
+#          (C) 2025 Pavel Krcma
 #
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License

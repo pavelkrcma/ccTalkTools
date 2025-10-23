@@ -6,6 +6,7 @@ from optparse import OptionParser
 
 #ccParse, a ccTalk data viewer
 #Copyright (C) 2012 Nicolas Oberli
+#          (C) 2025 Pavel Krcma
 #
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License
@@ -109,11 +110,17 @@ def load_binary_file(filename):
         print(f"Error reading binary file {filename}: {e}")
         sys.exit(1)
 
+# Load from log file in the format:
+# 15:45:34 CC: x20
+# 15:45:34 CC: 05 00 01 A6 00 -> 01 04 05 00 10 00 02 00 E4
+# 15:45:34 CC: 02 00 01 E5 00 -> 01 0B 02 00 30 05 00 05 00 06 08 04 02 04 02 9E
+# The speciality is that the first paket has evaluated checksum so 00 means correctly received packet.
+# For purposes of the correct parsing we calculate the checksum again
 def load_from_log(filename):
     try:
         with open(filename, "r") as f:
             lines = f.readlines()
-        
+
         binary_data = b''
 
         # Parse hex data packets
@@ -135,11 +142,19 @@ def load_from_log(filename):
                 input_hex = input_packet.replace(' ', '')
                 if input_hex:
                     try:
-                        binary_data += bytes.fromhex(input_hex)
+                        input_hex_data = bytes.fromhex(input_hex)
                     except ValueError as e:
                         print(f"Error parsing hex data '{input_hex}': {e}")
                         pass
-                
+
+                if (input_hex_data[-1] != 0):
+                    print(f"Warning: Packet with invalid checksum detected: {input_packet}")
+                    pass
+
+                input_hex_data = input_hex_data[:-1]
+                chksum = 256-(sum(input_hex_data) % 256)
+                binary_data += input_hex_data + bytes([chksum])
+
                 output_hex = output_packet.replace(' ', '')
                 if output_hex:
                     try:
@@ -147,7 +162,7 @@ def load_from_log(filename):
                     except ValueError:
                         print(f"Error parsing hex data '{input_hex}': {e}")
                         pass
-        
+
         return binary_data
         
     except IOError as e:
