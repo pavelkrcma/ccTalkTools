@@ -97,7 +97,7 @@ def main_ui():
                         ('fixed',17,(urwid.LineBox(infoFill))),
                         ])
 
-    header = urwid.AttrMap(urwid.Text('ccParse 0.4 - ' + str(len(keys)) +' messages'), 'head')
+    header = urwid.AttrMap(urwid.Text('ccParse 0.5 - ' + str(len(keys)) +' messages'), 'head')
     view = urwid.Frame(liste,  header=header)
     loop = urwid.MainLoop(view, palette, unhandled_input=keystroke)
     loop.run()
@@ -177,6 +177,8 @@ if __name__ == '__main__':
                         help="Load FILE in text mode")
     parser.add_option("-i", "--interactive", action="store_true", dest="interactive", default=False,
                         help="Start in interactive mode")
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False,
+                        help="Enable verbose output")
 
     (options, args) = parser.parse_args()
 
@@ -197,6 +199,31 @@ if __name__ == '__main__':
         keys = [Label(str(message)) for message in messages]
         reloadContent()
         main_ui()
+
     else:
-        for message in messages:
-            print(message)
+        # Print only valid and paired messages
+        if options.verbose:
+            prev_message = None
+            for message in messages:
+                if prev_message is None:
+                    prev_message = message
+                    continue
+                if message.payload.header == 0 and message.destination == prev_message.source and message.source == prev_message.destination:
+                    print(prev_message)
+                    print(' '.join(binascii.hexlify(prev_message.raw()).decode()[i:i+2] for i in range(0, len(binascii.hexlify(prev_message.raw()).decode()), 2)),
+                          '->',
+                          ' '.join(binascii.hexlify(message.raw()).decode()[i:i+2] for i in range(0, len(binascii.hexlify(message.raw()).decode()), 2)))
+                    if prev_message.length > 0:
+                        print("= Request payload decoding")
+                        print(prev_message.payload.parsePayload(
+                                prev_message.payload.header))
+                    if message.length > 0:
+                        print("= Response payload decoding")
+                        print(message.payload.parsePayload(
+                                prev_message.payload.header))
+                    print("")
+                    prev_message = None
+
+        else:
+            for message in messages:
+                print(message)

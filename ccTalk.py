@@ -189,11 +189,13 @@ headerTypes = {
         110 : 'Switch encryption key',
         109 : 'Request encrypted hopper status',
         108 : 'Request encrypted monetary id',
+        6 : 'BUSY',
+        5 : 'NACK',
         4 : 'Request comms revision',
         3 : 'Clear comms status variables',
         2 : 'Request comms status variables',
         1 : 'Reset device',
-        0 : 'Reply'
+        0 : 'ACK'
         }
 
 class ccTalkPayload():
@@ -211,33 +213,51 @@ class ccTalkPayload():
         """
         #Analyzing a response
         if self.header == 0:
-            # Here you can add handling code for other headers
-            if header == 230 or header == 231:
+            if header in [230, 231]:
                 #Process inhibit status
                 return self._extractChannelData()
             elif header == 229:
                 #Process coin event code status
                 return self._extractCoinBuffer()
-            elif header in [131, 145, 170, 171, 184, 192, 241, 242, 244, 245, 246]:
+            elif header in [131, 145, 170, 171, 184, 192, 241, 244, 245, 246]:
                 #Process functions that return ASCII
                 self.decodedHeader = self.data.decode('ascii', errors='ignore')
                 return self.decodedHeader
             elif header == 227:
                 return self._extractEnableState()
-            else:
-                self.decodedHeader = binascii.hexlify(self.data).decode()
+            elif header == 166:
+                self.decodedHeader = "Number of payments made since the last reset : " + str(self.data[0]) +\
+                        "\nNumber of coins still to be paid : " + str(self.data[1]) +\
+                        "\nNumber of coins paid in the last payout : " + str(self.data[2]) +\
+                        "\nNumber of coins unpaid in the last payout : " + str(self.data[3])
                 return self.decodedHeader
+            else:
+                self.decodedHeader = ' '.join(binascii.hexlify(self.data).decode()[i:i+2] for i in range(0, len(binascii.hexlify(self.data).decode()), 2))
+                return self.decodedHeader
+
         #Analyzing a request
         else:
-            # Here you can add handling code for other functions
             if self.header == 231:
                 return self._extractChannelData()
+            elif self.header == 251:
+                self.decodedHeader = "New address : " + str(self.data[0])
+                return self.decodedHeader
             elif self.header == 228:
                 return self._extractEnableState()
             elif self.header in [184, 209]:
                 return self._extractChannelInfo()
+            elif self.header == 167:
+                self.decodedHeader = "Number of coins to dispense : " + str(self.data[-1]) + \
+                        "\nEncryption code : " + ' '.join(binascii.hexlify(self.data[0:-1]).decode()[i:i+2] for i in range(0, len(binascii.hexlify(self.data[0:-1]).decode()), 2))
+                return self.decodedHeader
+            elif self.header == 164:
+                if self.data == bytes([0xa5]):
+                    self.decodedHeader = "Hopper enabled"
+                else:
+                    self.decodedHeader = "Hopper disabled"
+                return self.decodedHeader
             else:
-                self.decodedHeader = binascii.hexlify(self.data).decode()
+                self.decodedHeader = ' '.join(binascii.hexlify(self.data).decode()[i:i+2] for i in range(0, len(binascii.hexlify(self.data).decode()), 2))
                 return self.decodedHeader
 
     def raw(self):
@@ -351,6 +371,10 @@ class ccTalkMessage():
 
     def __str__(self) -> str:
         retstr = str(self.source) + " -> " + str(self.destination) + " :"
+
+        if (self.length == 0) and (self.payload.header == 0):
+            retstr = retstr + " ACK"
+            return retstr
 
         if self.payload.header > 0:
             retstr = retstr +\
