@@ -159,8 +159,8 @@ def load_from_log(filename):
                 if output_hex:
                     try:
                         binary_data += bytes.fromhex(output_hex)
-                    except ValueError:
-                        print(f"Error parsing hex data '{input_hex}': {e}")
+                    except ValueError as e:
+                        print(f"Error parsing hex data '{output_hex}': {e}")
                         pass
 
         return binary_data
@@ -175,6 +175,8 @@ if __name__ == '__main__':
                         help="Load FILE in binary mode")
     parser.add_option("-a", "--ascii", dest="log_file", metavar="FILE",
                         help="Load FILE in text mode")
+    parser.add_option("-f", "--filter", metavar="NUMBER", type="int", dest="filter_dest", default=None,
+                        help="Filter messages to/from device with address NUMBER")
     parser.add_option("-i", "--interactive", action="store_true", dest="interactive", default=False,
                         help="Start in interactive mode")
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False,
@@ -194,6 +196,8 @@ if __name__ == '__main__':
     print(f"Loaded {len(packet_data)} bytes of data.\n")
 
     _, messages = parseMessages(packet_data)
+    if options.filter_dest is not None:
+        messages = [msg for msg in messages if msg.source == options.filter_dest or msg.destination == options.filter_dest]
 
     if options.interactive:
         keys = [Label(str(message)) for message in messages]
@@ -208,8 +212,11 @@ if __name__ == '__main__':
                 if prev_message is None:
                     prev_message = message
                     continue
-                if message.payload.header == 0 and message.destination == prev_message.source and message.source == prev_message.destination:
+                # Check for request-response pairs and ACK, NAK or BUSY
+                if message.payload.header in [0, 5, 6] and message.destination == prev_message.source and message.source == prev_message.destination:
                     print(prev_message)
+                    if message.payload.header in [5, 6]:
+                        print("= ERROR")
                     print(' '.join(binascii.hexlify(prev_message.raw()).decode()[i:i+2] for i in range(0, len(binascii.hexlify(prev_message.raw()).decode()), 2)),
                           '->',
                           ' '.join(binascii.hexlify(message.raw()).decode()[i:i+2] for i in range(0, len(binascii.hexlify(message.raw()).decode()), 2)))
@@ -223,6 +230,12 @@ if __name__ == '__main__':
                                 prev_message.payload.header))
                     print("")
                     prev_message = None
+                else:
+                    print('Unexpected message sequence:')
+                    print(prev_message)
+                    print(message)
+                    print("")
+                    prev_message = message
 
         else:
             for message in messages:

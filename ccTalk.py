@@ -190,7 +190,7 @@ headerTypes = {
         109 : 'Request encrypted hopper status',
         108 : 'Request encrypted monetary id',
         6 : 'BUSY',
-        5 : 'NACK',
+        5 : 'NAK',
         4 : 'Request comms revision',
         3 : 'Clear comms status variables',
         2 : 'Request comms status variables',
@@ -219,7 +219,7 @@ class ccTalkPayload():
             elif header == 229:
                 #Process coin event code status
                 return self._extractCoinBuffer()
-            elif header in [131, 145, 170, 171, 184, 192, 241, 244, 245, 246]:
+            elif header in [129, 131, 145, 170, 171, 184, 192, 241, 244, 245, 246]:
                 #Process functions that return ASCII
                 self.decodedHeader = self.data.decode('ascii', errors='ignore')
                 return self.decodedHeader

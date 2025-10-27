@@ -4,6 +4,8 @@ Forked from https://github.com/Baldanos/ccTools and made Python3 compatible
 ccParse now could load text logs, useful for debugging 3rd party applications
 UV is the preffered package manager
 
+A note: there is an interesting project, a HLA parser for Saleae logic analyser: https://github.com/RAKKOUCHE/ccTalk-HLA
+
 = Tools
 
 == ccParse
