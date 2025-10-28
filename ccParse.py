@@ -152,7 +152,7 @@ def load_from_log(filename):
                     continue
 
                 input_hex_data = input_hex_data[:-1]
-                chksum = 256-(sum(input_hex_data) % 256)
+                chksum = ((0-sum(input_hex_data)) & 0xFF)
                 binary_data += input_hex_data + bytes([chksum])
 
                 output_hex = output_packet.replace(' ', '')

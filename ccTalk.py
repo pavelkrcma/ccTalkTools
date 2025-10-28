@@ -216,6 +216,13 @@ class ccTalkPayload():
             if header in [230, 231]:
                 #Process inhibit status
                 return self._extractChannelData()
+            elif header == 242:
+                self.decodedHeader = "Serial Number : " +\
+                    ' '.join(binascii.hexlify(self.data).decode()[i:i+2] for i in range(0, len(binascii.hexlify(self.data).decode()), 2))
+                if len(self.data) == 3: # the most common serial number size
+                    serial_number = int.from_bytes(self.data, byteorder='little')
+                    self.decodedHeader += " (decimal " + str(serial_number) + ")"
+                return self.decodedHeader
             elif header == 229:
                 #Process coin event code status
                 return self._extractCoinBuffer()
@@ -249,6 +256,9 @@ class ccTalkPayload():
             elif self.header == 167:
                 self.decodedHeader = "Number of coins to dispense : " + str(self.data[-1]) + \
                         "\nEncryption code : " + ' '.join(binascii.hexlify(self.data[0:-1]).decode()[i:i+2] for i in range(0, len(binascii.hexlify(self.data[0:-1]).decode()), 2))
+                if len(self.data[0:-1]) == 3: # serial number
+                    encryption_code = int.from_bytes(self.data[0:-1], byteorder='little')
+                    self.decodedHeader += " (decimal " + str(encryption_code) + ")"
                 return self.decodedHeader
             elif self.header == 164:
                 if self.data == bytes([0xa5]):
@@ -401,11 +411,11 @@ class ccTalkMessage():
     def _calculateChecksum(self):
         data = bytes([self.destination, self.length, self.source]) + self.payload.raw()
         total = sum(data)
-        return 256-(total%256)
+        return ((0-total) & 0xFF)
 
     def _validateChecksum(self, data:bytes):
         total = sum(data[:-1])
-        return (256-(total%256) == data[-1])
+        return ((0-total) & 0xFF) == data[-1]
 
     def _calculateCRC(self, data:bytes=None):
         """
