@@ -145,11 +145,11 @@ def load_from_log(filename):
                         input_hex_data = bytes.fromhex(input_hex)
                     except ValueError as e:
                         print(f"Error parsing hex data '{input_hex}': {e}")
-                        pass
+                        continue
 
                 if (input_hex_data[-1] != 0):
                     print(f"Warning: Packet with invalid checksum detected: {input_packet}")
-                    pass
+                    continue
 
                 input_hex_data = input_hex_data[:-1]
                 chksum = 256-(sum(input_hex_data) % 256)
@@ -161,7 +161,7 @@ def load_from_log(filename):
                         binary_data += bytes.fromhex(output_hex)
                     except ValueError as e:
                         print(f"Error parsing hex data '{output_hex}': {e}")
-                        pass
+                        continue
 
         return binary_data
         
