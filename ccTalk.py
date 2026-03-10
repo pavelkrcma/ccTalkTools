@@ -201,6 +201,12 @@ headerTypes = {
 class ccTalkPayload():
 
     def __init__(self, header=0, data:bytes=b''):
+        if not isinstance(header, int):
+            raise TypeError("header must be an int")
+        if not 0 <= header <= 0xFF:
+            raise ValueError("header must be in range 0..255")
+        if not isinstance(data, bytes):
+            raise TypeError("data must be bytes")
         self.header = header
         self.data = data
         self.decodedHeader = ''
@@ -273,7 +279,7 @@ class ccTalkPayload():
     def raw(self):
         return bytes([self.header]) + self.data
     def __repr__(self):
-        return repr(self.raw())
+        return f"ccTalkPayload(header={self.header!r}, data={self.data!r})"
     def __str__(self):
         return f"ccTalkPayload(header={self.header}, data={self.data})"
     def __len__(self):
@@ -336,8 +342,20 @@ class ccTalkPayload():
 
 class ccTalkMessage():
     def __init__(self, data:bytes=b'', source=1, destination=2, header=0, payload:bytes=b''):
+        if not isinstance(data, bytes):
+            raise TypeError("data must be bytes")
         if len(data) == 0:
             #Creates a blank message
+            if not isinstance(source, int):
+                raise TypeError("source must be an int")
+            if not isinstance(destination, int):
+                raise TypeError("destination must be an int")
+            if not 0 <= source <= 0xFF:
+                raise ValueError("source must be in range 0..255")
+            if not 0 <= destination <= 0xFF:
+                raise ValueError("destination must be in range 0..255")
+            if not isinstance(payload, bytes):
+                raise TypeError("payload must be bytes")
             self.destination = destination
             self.length = len(payload)
             self.source = source
@@ -360,7 +378,7 @@ class ccTalkMessage():
             self.payload = ccTalkPayload(header, data[4:-1])
             self.sigmode = 1
         else:
-            raise Exception 
+            raise ValueError("data is not a valid ccTalk message")
 
     def raw(self) -> bytes:
         """
@@ -377,7 +395,12 @@ class ccTalkMessage():
         return len(self.raw())
 
     def __repr__(self):
-        return repr(self.raw())
+        return (
+            "ccTalkMessage("
+            f"source={self.source!r}, destination={self.destination!r}, "
+            f"header={self.payload.header!r}, payload={self.payload.data!r}, "
+            f"sigmode={self.sigmode!r})"
+        )
 
     def __str__(self) -> str:
         retstr = str(self.source) + " -> " + str(self.destination) + " :"
